@@ -1,0 +1,106 @@
+ESQL Source Code: Transformation_Compute.esql
+User Trace Log  : Transformation_ESQL_Trace.txt
+Execution time  : 2015-10-09 23:07:10
+IAM2 version    : 1.0.5
+
+-------------------------
+Overview of Code Coverage
+-------------------------
+Total Functions & Procedures: 3
+
+'.Transformation_Compute.CopyEntireMessage'
+Lines           : 3 (0 comment and 0 blank lines)
+Executed Lines  : 0 of 3 executable lines
+Percent comment :   0.0%
+Code coverage   :   0.0%
+
+'.Transformation_Compute.CopyMessageHeaders'
+Lines           : 9 (0 comment and 0 blank lines)
+Executed Lines  : 9 of 9 executable lines
+Percent comment :   0.0%
+Code coverage   : 100.0%
+
+'.Transformation_Compute.Main'
+Lines           : 48 (8 comment and 8 blank lines)
+Executed Lines  : 32 of 32 executable lines
+Percent comment :  20.0%
+Code coverage   : 100.0%
+
+Total Executed Lines : 41 of 44 executable lines
+Total Code Coverage  : 93.2%
+
+------------------------
+Details of Code Coverage
+------------------------
+[x] line was executed
+[ ] line was not executed
+    line is comment or blank line
+
+ESQL Function / Procedure 1: '.Transformation_Compute.Main'
+
+[x] 1: 	CREATE FUNCTION Main() RETURNS BOOLEAN
+[x] 2: 	BEGIN
+[x] 3: 		CALL CopyMessageHeaders();
+    4: 		-- CALL CopyEntireMessage();
+    5: 		
+[x] 6: 		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+    7: 		-- create references placeholders (the values will be changed later)
+[x] 8: 		DECLARE invoice REFERENCE TO InputRoot.XMLNSC.SaleEnvelope.SaleList.Invoice;
+[x] 9: 		DECLARE statement REFERENCE TO OutputRoot.XMLNSC.SaleEnvelope.SaleList;
+[x] 10: 		DECLARE article REFERENCE TO OutputRoot.XMLNSC.SaleEnvelope.SaleList;
+[x] 11: 		DECLARE amount REFERENCE TO OutputRoot.XMLNSC.SaleEnvelope.SaleList;
+[x] 12: 		DECLARE total DECIMAL 0;
+    13: 		
+    14: 		-- while invoice has next element
+[x] 15: 		WHILE LASTMOVE(invoice) DO
+    16: 			-- create the new message
+[x] 17: 			CREATE LASTCHILD OF OutputRoot.XMLNSC.SaleEnvelope.SaleList AS statement Type XMLNSC.Folder Name 'Statement';
+[x] 18: 			SET statement.(XMLNSC.Attribute)Type = 'Monthly';
+[x] 19: 			SET statement.(XMLNSC.Attribute)Style = 'Full';
+    20: 			
+[x] 21: 			SET statement.Customer.(XMLNSC.Field)Initials = invoice.Initial[1] || invoice.Initial[2];
+[x] 22: 			SET statement.Customer.(XMLNSC.Field)Name = invoice.Surname;
+[x] 23: 			SET statement.Customer.(XMLNSC.Field)Balance = invoice.Balance;
+    24: 			
+[x] 25: 			SET total = 0;
+[x] 26: 			DECLARE items REFERENCE TO invoice.Item;
+    27: 			-- while items has next element
+[x] 28: 			WHILE LASTMOVE(items) DO
+    29: 				-- create new Article
+[x] 30: 				CREATE LASTCHILD OF statement.Purchases AS article Type XMLNSC.Folder Name 'Article';
+[x] 31: 				SET article.(XMLNSC.Field)Desc = items.Description;
+[x] 32: 				SET article.(XMLNSC.Field)Cost = CAST(items.Price AS DECIMAL) * 1.6;
+[x] 33: 				SET article.(XMLNSC.Field)Qty = items.Quantity;
+    34: 				
+[x] 35: 				SET total = (CAST(items.Price AS DECIMAL) * 1.6) * CAST(items.Quantity AS INTEGER);
+    36: 				-- go to the next item
+[x] 37: 				MOVE items NEXTSIBLING NAME 'Item';
+[x] 38: 			END WHILE;
+    39: 			
+[x] 40: 			SET statement.(XMLNSC.Field)Amount = total;
+[x] 41: 			SET statement.Amount.(XMLNSC.Attribute)Currency = invoice.Currency;
+    42: 			
+    43: 			-- go to the next invoice
+[x] 44: 			MOVE invoice NEXTSIBLING NAME 'Invoice';
+[x] 45: 		END WHILE;
+    46: 		
+[x] 47: 		RETURN TRUE;
+[x] 48: 	END;
+
+ESQL Function / Procedure 2: '.Transformation_Compute.CopyMessageHeaders'
+
+[x] 1: 	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+[x] 2: 		DECLARE I INTEGER 1;
+[x] 3: 		DECLARE J INTEGER;
+[x] 4: 		SET J = CARDINALITY(InputRoot.*[]);
+[x] 5: 		WHILE I < J DO
+[x] 6: 			SET OutputRoot.*[I] = InputRoot.*[I];
+[x] 7: 			SET I = I + 1;
+[x] 8: 		END WHILE;
+[x] 9: 	END;
+
+ESQL Function / Procedure 3: '.Transformation_Compute.CopyEntireMessage'
+
+[ ] 1: 	CREATE PROCEDURE CopyEntireMessage() BEGIN
+[ ] 2: 		SET OutputRoot = InputRoot;
+[ ] 3: 	END;

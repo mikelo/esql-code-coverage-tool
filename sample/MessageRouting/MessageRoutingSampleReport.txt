@@ -1,208 +1,140 @@
-ESQL Source Code: Routing_using_memory_cache.esql
-User Trace Log  : MessageRoutingSampleTrace.txt
-Execution time  : 2008-04-29 16:26:46
+ESQL Source Code: /home/michele/git/ace-source/ACME_CoffeeRoasters_Application/Procedures.esql
+User Trace Log : /tmp/work-dir/config/common/log/integration_server.work-dir.trace.0.txt
+Execution time : 2025-09-02 11:15:24
 
+IAM2 version : 1.0.6
 -------------------------
 Overview of Code Coverage
 -------------------------
-Total Functions & Procedures: 2
+Total Functions & Procedures: 4
 
-'.Refresh_memory_cache_Compute.Main'
-Lines          : 7 (2 comments and blank lines)
-Executed Lines : 5 of 5 executable lines
-Code coverage  : 100.0%
+'.GatherData'
+Lines : 15 (0 comment and 0 blank lines)
+Executed Lines : 13 of 15 executable lines
+Percent comment :   0.0%
+Code coverage :  86.7%
 
-'.Routing_using_memory_cache_Compute.Main'
-Lines          : 167 (131 comments and blank lines)
-Executed Lines : 34 of 36 executable lines
-Code coverage  : 94.4%
+'.Initialise'
+Lines : 69 (1 comment and 1 blank lines)
+Executed Lines : 1 of 67 executable lines
+Percent comment :   1.5%
+Code coverage :   1.5%
 
-Total Executed Lines : 39 of 41 executable lines
-Total Code Coverage  : 95.1%
+'.PrepareData'
+Lines : 10 (0 comment and 1 blank lines)
+Executed Lines : 3 of 9 executable lines
+Percent comment :   0.0%
+Code coverage :  33.3%
+
+Total Executed Lines : 17 of 91 executable lines
+Total Code Coverage : 18.7%
 
 ------------------------
 Details of Code Coverage
 ------------------------
 [x] line was executed
 [ ] line was not executed
-    line is comment or blank line
+ line is comment or blank line
 
-ESQL Function / Procedure 1: '.Routing_using_memory_cache_Compute.Main'
+ESQL Function / Procedure 1: '.Initialise'
 
-[x] 1: 	CREATE FUNCTION Main() RETURNS BOOLEAN
-[x] 2: 	BEGIN
-    3: 		/****************************************************************************
-    4: 		*   Compute node ESQL to find a queue destination based on the
-    5: 		*   content of the message.
-    6: 		*
-    7: 		*   A non-cached database table is used to store the routing information
-    8: 		*
-    9: 		*   Any compute node using this ESQL most have the following set:
-    10: 		*
-    11: 		*   - The database source set to the database containing the routing table
-    12: 		*   - The compute mode set to environment.
-    13: 		*****************************************************************************/
-    14: 		 
-    15: 		/*
-    16: 			Neither the whole message nor the message headers are copied across.
-    17: 			This is because the compute node is ran in "LocalEnvironment" mode.
-    18: 			By setting the compute node to this value the OutputRoot is automatically
-    19: 			set to the InputRoot without any copying of the message content being done.
-    20: 			This mode should always be used when the message body does not need to be 
-    21: 			modified. 
-    22: 		*/
-    23: 		-- CALL CopyMessageHeaders();
-    24: 		-- CALL CopyEntireMessage(); 
-    25: 		
-    26: 		/*
-    27: 		    As the compute mode is set to LocalEnvironment, the Input LocalEnvironment
-    28: 		    must be copied to the OutputLocalEnvironment. Otherwise the current content 
-    29: 		    of the environment will be lost. 
-    30: 		*/
-[x] 31: 		SET OutputLocalEnvironment = InputLocalEnvironment;
-    32: 		
-    33: 		/*
-    34: 			The first real action is to get the queue manager name and the queue name from 
-    35: 			the database table. This is done using two fields from the message and one hard 
-    36: 			coded value.
-    37: 			
-    38: 			This is the only part of the ESQL that needs to be customised to reuse this ESQL 
-    39: 			in another scenario.
-    40: 			
-    41: 			Declare and calculate the three variables used:
-    42: 		*/
-    43: 		-- Section 1
-[x] 44: 		DECLARE Variable1 CHAR 'SAMPLE_QUEUES'; -- Hard coded value
-[x] 45: 		DECLARE Variable2 CHAR;            -- Customer initials
-[x] 46: 		DECLARE Variable3 CHAR;	        -- Customer surname
-    47: 		
-    48: 		-- Section 2
-[x] 49: 		DECLARE refToInvoice REFERENCE TO "InputRoot"."XMLNSC"."SaleEnvelope"."SaleList"."Invoice";
-[x] 50: 		IF lastmove(refToInvoice) THEN
-[x] 51: 			SET Variable2 = refToInvoice."Initial"[1] ||refToInvoice."Initial"[2]; -- append the two initials together
-[x] 52: 			SET Variable3 = refToInvoice."Surname";
-[x] 53: 		ELSE
-    54: 			/*
-    55: 			   	if fields can not be found in message then set to a default value.
-    56: 			   	An alternative to this would be throw an exception.
-    57: 			   	
-    58: 			   	This could be done using the ESQL:
-    59: 			   	   THROW EXCEPTION MESSAGE 3000 ;
-    60: 			*/
-    61: 			-- Section 3
-[ ] 62: 			SET Variable2 = 'default';
-[ ] 63: 		    SET Variable3 = 'default';
-[x] 64: 		END IF;
-    65: 		
-    66: 		/*
-    67: 			Use these Variables to select the queue manager name and the queue name from the database.
-    68: 			It is important to note that this sample only ever returns 
-    69: 			one destination queue but this would still work if the database
-    70: 			select returned multiple destination queues.
-    71: 			The message would then be sent to multiple output queues.
-    72: 		*/
-    73: 		/*
-    74: 			There are two parts to finding the queue destination.
-    75: 			The first is to get a table of all possible queues from the database and
-    76: 			the second is to search this in memory table for the queue required
-    77: 			for this message.
-    78: 			
-    79: 			To speed the processing, the first action will only be done when the first message enters the
-    80: 			message flow. The retrieved database table will be stored in memory for any other messages
-    81: 			to use. The cache can also be refreshed by putting a message onto the CACHE.MEMORY.REFRESH queue.
-    82: 			
-    83: 			It is important to note that all this processing is surrounded by a begin atomic block.
-    84: 			This makes sure that only one message accesses the cache at a time. This is very important
-    85: 			because the cache could be refreshed at any point. If two messages are using the cache at the
-    86: 			same time then one could refresh the cache while the other one is using it.
-    87: 			If refreshing is not going to be used or only used when the message flow has been stopped then the 
-    88: 			BEGIN ATOMIC statement END; can be moved to just before the start of part 2. This is to make sure
-    89: 			that the initialization of the cache is single threaded. The ATOMIC block is given a label called 
-    90: 			"ROUTING". It is important to label ATOMIC blocks because all ATOMIC blocks with in a message flow, 
-    91: 			with the same label, share the same lock even if they are in different compute nodes.
-    92: 		*/
-    93: 		
-    94: 		/*
-    95: 			Part 1: Getting the database table into memory.
-    96: 			The database is only read if the CacheQueues.vaild field is set to null.
-    97: 			This happens either at initialization time when the flow is
-    98: 			ran for the first time or when the refresh part of the flow resets
-    99: 			the cache.
-    100: 			
-    101: 			The actual select statement has several important constructs:
-    102: 			1, CacheQueues.DestinationData[]
-    103: 			   This is the shared variable that will store the contents of the 
-    104: 			   routing database.
-    105: 			
-    106: 			2, select S.queue_manager as queueManager, S.queue_name as queueName
-    107: 			   This part maps the column names in the table to the names that are required for routing.
-    108: 			   
-    109: 			3, from Database.routing_table as S 
-    110: 			   This chooses the table to do the select from and sets up the variable S.
-    111: 			   If the variable S is not defined then all column names have to be prefixed 
-    112: 			   with Database.routing_table rather than S.
-    113: 			   
-    114: 			4, Where
-    115: 				This is where the selection criteria are given. Again all column names must either
-    116: 				be prefixed with S or Database.routing_table.
-    117: 			   
-    118: 		*/
-    119: 		-- Section 4
-[x] 120: 		ROUTING : BEGIN ATOMIC -- beginning of atomic block. Processing is single threaded until the END; is reached
-[x] 121: 			IF CacheQueueTable.valid IS NULL THEN
-[x] 122: 		 		SET  CacheQueueTable.DestinationData[] =  
-[x] 123: 		       	(
-[x] 124: 		       		SELECT S.QUEUE_MANAGER, S.QUEUE_NAME ,S.VARIABLE2, S.VARIABLE3
-[x] 125: 		       		FROM Database.ROUTING_TABLE as S 
-[x] 126: 		       		WHERE 
-[x] 127: 		       			S.VARIABLE1 = Variable1		         			
-[x] 128: 		       	 ); 
-    129: 		         	 
-[x] 130: 			SET CacheQueueTable.valid = true;
-[x] 131: 			END IF;
-    132: 			-- Section 5
-    133: 			/* 
-    134: 				NOTE: the END; to the BEGIN ATOMIC can be move to this position if refreshing
-    135: 					  is not going to be used. This is because only initialization of the cache
-    136: 					  needs to be atomic and not the using of the cache as well.
-    137: 			*/
-    138: 		/*
-    139: 			At this point the CacheQueues should be full of the data with possible destinations
-    140: 			
-    141: 			Part2, Using the in memory cache.
-    142: 			Now, A esql select will be used to find the actual destination from the list of database rows          
-    143: 		*/
-    144: 		
-[x] 145: 			SET  OutputLocalEnvironment.Destination.MQDestinationList.DestinationData[] = 
-[x] 146: 		          (
-[x] 147: 		        	SELECT S.QUEUE_MANAGER as queueManagerName, S.QUEUE_NAME as queueName 
-[x] 148: 		        	FROM CacheQueueTable.DestinationData[] as S 
-[x] 149: 		        	WHERE 
-[x] 150: 		        		S.VARIABLE2 = Variable2 and 
-[x] 151: 		        		S.VARIABLE3 = Variable3		        			
-[x] 152: 		          );
-    153: 		-- Section 6
-[x] 154: 		END ROUTING ; -- end of the ROUTING atomic block
-    155: 		/*
-    156: 		
-    157: 			At this point the local environment has been successfully set up with the required
-    158: 			destination queue manager and queue name.
-    159: 			For the message to successfully get put to the queue the following must happen after this node:
-    160: 			1, Any compute node processing the message must use mode "message" or copy across the
-    161: 			   LocalEnvironment. If this is not done then the destination queue will be lost.
-    162: 			2, The MQOuput node used to put the message to the queues in the list must have the 
-    163: 			   Destination Mode set to Destination List.
-    164: 		*/
-    165: 		
-[x] 166: 		RETURN TRUE;
-[x] 167: 	END;
+[ ] 1: 		BEGIN ATOMIC
+ 2: -- test
+[ ] 3: 		IF Initialised = FALSE THEN
+[x] 4: 			DECLARE ItemRef REFERENCE TO Inventory;
+[ ] 5: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 6: 			SET ItemRef.Name = 'Peruvian';
+[ ] 7: 			SET ItemRef.Quantity = 850;
+[ ] 8: 			SET ItemRef.Price = 3.00;
+[ ] 9: 			SET ItemRef.Strength = 1;
+[ ] 10: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 11: 			SET ItemRef.Name = 'Indian';
+[ ] 12: 			SET ItemRef.Quantity = 475;
+[ ] 13: 			SET ItemRef.Price = 3.35;
+[ ] 14: 			SET ItemRef.Strength = 2;
+[ ] 15: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 16: 			SET ItemRef.Name = 'Moroccan';
+[ ] 17: 			SET ItemRef.Quantity = 600;
+[ ] 18: 			SET ItemRef.Price = 2.80;
+[ ] 19: 			SET ItemRef.Strength = 3;
+[ ] 20: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 21: 			SET ItemRef.Name = 'Mexican';
+[ ] 22: 			SET ItemRef.Quantity = 350;
+[ ] 23: 			SET ItemRef.Price = 3.00;
+[ ] 24: 			SET ItemRef.Strength = 4;
+[ ] 25: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 26: 			SET ItemRef.Name = 'Kenyan';
+[ ] 27: 			SET ItemRef.Quantity = 380;
+[ ] 28: 			SET ItemRef.Price = 3.30;
+[ ] 29: 			SET ItemRef.Strength = 5;			
+[ ] 30: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 31: 			SET ItemRef.Name = 'Guatamalan';
+[ ] 32: 			SET ItemRef.Quantity = 180;
+[ ] 33: 			SET ItemRef.Price = 3.10;
+[ ] 34: 			SET ItemRef.Strength = 5;
+[ ] 35: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item';
+[ ] 36: 			SET ItemRef.Name = 'Colombian';
+[ ] 37: 			SET ItemRef.Quantity = 715;
+[ ] 38: 			SET ItemRef.Price = 3.05;
+[ ] 39: 			SET ItemRef.Strength = 6;
+[ ] 40: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 41: 			SET ItemRef.Name = 'Ethiopian';
+[ ] 42: 			SET ItemRef.Quantity = 850;
+[ ] 43: 			SET ItemRef.Price = 3.00;
+[ ] 44: 			SET ItemRef.Strength = 7;
+[ ] 45: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 46: 			SET ItemRef.Name = 'Vietnamese';
+[ ] 47: 			SET ItemRef.Quantity = 815;
+[ ] 48: 			SET ItemRef.Price = 2.95;
+[ ] 49: 			SET ItemRef.Strength = 7;
+[ ] 50: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 51: 			SET ItemRef.Name = 'Brazilian';
+[ ] 52: 			SET ItemRef.Quantity = 160;
+[ ] 53: 			SET ItemRef.Price = 3.25;
+[ ] 54: 			SET ItemRef.Strength = 8;
+[ ] 55: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 56: 			SET ItemRef.Name = 'Indonesian';
+[ ] 57: 			SET ItemRef.Quantity = 200;
+[ ] 58: 			SET ItemRef.Price = 2.75;
+[ ] 59: 			SET ItemRef.Strength = 9;
+[ ] 60: 			CREATE LASTCHILD OF Inventory AS ItemRef Type Name Name 'Item'; 
+[ ] 61: 			SET ItemRef.Name = 'Sumatran';
+[ ] 62: 			SET ItemRef.Quantity = 800;
+[ ] 63: 			SET ItemRef.Price = 2.75;
+[ ] 64: 			SET ItemRef.Strength = 10;			
+[ ] 65: 			SET Initialised = TRUE;
+[ ] 66: 		END IF;				
+ 67: 						 
+[ ] 68: 		END;
+[ ] 69: 	END;
 
-ESQL Function / Procedure 2: '.Refresh_memory_cache_Compute.Main'
+ESQL Function / Procedure 2: '.GatherData'
 
-[x] 1: 	CREATE FUNCTION Main() RETURNS BOOLEAN
-[x] 2: 	BEGIN
-    3: 		-- CALL CopyMessageHeaders();
-    4: 		-- CALL CopyEntireMessage();
-[x] 5: 		set CacheQueueTable.valid value = null;
-[x] 6: 		RETURN TRUE;
-[x] 7: 	END;
+[ ] 1: 		DECLARE DesiredQuantity INTEGER CAST(InputRoot.JSON.Data.Quantity AS INTEGER);
+[x] 2: 		DECLARE DesiredStrength INTEGER CAST(InputRoot.JSON.Data.Strength AS INTEGER);
+[x] 3: 		SET Environment.Inventory.Item[] = SELECT * FROM Inventory.Item[] AS I
+[x] 4: 											WHERE I.Quantity > DesiredQuantity 
+[x] 5: 											AND I.Strength = DesiredStrength;
+[x] 6: 		SET Environment.Variables.Quantity = DesiredQuantity;
+[x] 7: 		SET Environment.Variables.Strength = DesiredStrength;
+[x] 8: 		SET Environment.Variables.NumberOfCoffeesCorrectStrength = CARDINALITY(Environment.Inventory.Item[]);
+[x] 9: 		DECLARE datetimepattern CHAR 'yyyyMMdd HH:mm:ss ZZZ';
+[ ] 10: 		SET Environment.Variables.Datetime = CAST(CURRENT_TIMESTAMP AS CHAR FORMAT datetimepattern);
+[x] 11: 		SET Environment.Variables.Hostname = GetHostname();
+[x] 12: 		SET Environment.Variables.Application = ApplicationLabel;
+[x] 13: 		SET Environment.Variables.Flow = MessageFlowLabel;
+[x] 14: 		SET Environment.Variables.SoftwareVersion = BrokerVersion;		
+[x] 15: 	END;
+
+ESQL Function / Procedure 3: '.PrepareData'
+
+ 1: 
+[ ] 2: 		DECLARE ItemRef REFERENCE TO Environment.Inventory;
+[ ] 3: 		MOVE ItemRef FIRSTCHILD;
+[ ] 4: 		DECLARE Message CHAR ''; 
+[ ] 5: 		WHILE LASTMOVE(ItemRef) DO
+[x] 6: 			SET Message = Message || '(' || ItemRef.Name || ' has available quantity of ' || CAST(ItemRef.Quantity AS CHAR) || ' and has price ' || CAST(ItemRef.Price AS CHAR) || ')';
+[x] 7: 			MOVE ItemRef NEXTSIBLING;
+[ ] 8: 		END WHILE;
+[ ] 9: 		SET Environment.Variables.MessageDetail = Message;
+[x] 10: 	END;

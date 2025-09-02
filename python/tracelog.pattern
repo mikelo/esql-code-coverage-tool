@@ -1,0 +1,15 @@
+
+# IAM2 Python pattern file (VERBOSE mode enabled by the evaluator)
+# Capture groups (positional):
+#   1: Function/procedure fully qualified name (e.g., .LocalTest_Compute1.Main)
+#   2: Relative line (int or float)
+
+# old variant, kept for compatibility
+# .* at \('(.*)', '(\w+)\.\w+'\)
+
+# Generic: match "at (<func>, <line>)."
+at\s*\(\s*'?([.\w]+)'?\s*,\s*'?([0-9]+(?:\.[0-9]+)?)'?\s*\)\.
+
+# Strict BIP2537I "Executing statement" variant (keeps noise down in mixed logs)
+BIP2537I:\s*Node\s+'.+?':\s*Executing\s+statement\s+'.*?'\s+at\s*\(
+    \s*'?([.\w]+)'?\s*,\s*'?([0-9]+(?:\.[0-9]+)?)'?\s*\)\.

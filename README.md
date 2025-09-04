@@ -157,9 +157,45 @@ Details of Code Coverage
 
 ---
 
-## VS Code Tips (pattern highlighting)
-- Associate `tracelog.pattern` with **Regex** or **Python** language mode to get `#` comment highlighting.
-- Extensions to try: *Regex Highlight*, *Better Regex*, or *Regex Language Support*.
+## SonarQube Integration (Generic Test Coverage XML)
+
+This tool can export a **SonarQube Generic Test Coverage** XML report (coverage `version="1"`), which you can import using the `sonar.coverageReportPaths` property. See SonarQube docs for the generic format and parameters. citeturn8search1turn8search4
+
+### Generate the XML
+
+```bash
+python3 evaluator.py trace.log LocalTest_Compute1.esql coverage_report.txt \
+  --pattern tracelog.pattern \
+  --sonar-coverage-xml sonar-coverage.xml
+```
+
+This creates `sonar-coverage.xml` like:
+
+```xml
+<coverage version="1">
+  <file path="LocalTest_Compute_1.esql">
+    <lineToCover lineNumber="12" covered="true"/>
+    <lineToCover lineNumber="13" covered="false"/>
+  </file>
+</coverage>
+```
+
+> The report includes only **executable lines** inside ESQL functions/procedures; comments and blank lines are excluded.
+
+### Import into SonarQube
+
+1. Ensure the reported file path matches your project structure (absolute or relative paths are accepted). citeturn8search1
+2. Configure your scanner (example `sonar-project.properties`):
+
+```properties
+sonar.projectKey=your-project
+sonar.sources=.
+sonar.coverageReportPaths=sonar-coverage.xml
+```
+
+3. Run your SonarScanner as usual; the coverage will appear on the project dashboard. citeturn8search4
+
+**References**: SonarQube generic coverage format & parameter `sonar.coverageReportPaths` (official docs). citeturn8search1turn8search4
 
 ---
 

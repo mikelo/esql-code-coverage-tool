@@ -159,7 +159,7 @@ Details of Code Coverage
 
 ## SonarQube Integration (Generic Test Coverage XML)
 
-This tool can export a **SonarQube Generic Test Coverage** XML report (coverage `version="1"`), which you can import using the `sonar.coverageReportPaths` property. See SonarQube docs for the generic format and parameters. citeturn8search1turn8search4
+This tool can export a **SonarQube Generic Test Coverage** XML report (coverage `version="1"`), which you can import using the `sonar.coverageReportPaths` property. See SonarQube docs for the generic format and parameters.
 
 ### Generate the XML
 
@@ -184,7 +184,7 @@ This creates `sonar-coverage.xml` like:
 
 ### Import into SonarQube
 
-1. Ensure the reported file path matches your project structure (absolute or relative paths are accepted). citeturn8search1
+1. Ensure the reported file path matches your project structure (absolute or relative paths are accepted).
 2. Configure your scanner (example `sonar-project.properties`):
 
 ```properties
@@ -193,9 +193,9 @@ sonar.sources=.
 sonar.coverageReportPaths=sonar-coverage.xml
 ```
 
-3. Run your SonarScanner as usual; the coverage will appear on the project dashboard. citeturn8search4
+3. Run your SonarScanner as usual; the coverage will appear on the project dashboard.
 
-**References**: SonarQube generic coverage format & parameter `sonar.coverageReportPaths` (official docs). citeturn8search1turn8search4
+**References**: SonarQube generic coverage format & parameter `sonar.coverageReportPaths` (official docs). 
 
 ---
 

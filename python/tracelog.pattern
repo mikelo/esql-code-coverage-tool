@@ -11,5 +11,8 @@
 at\s*\(\s*'?([.\w]+)'?\s*,\s*'?([0-9]+(?:\.[0-9]+)?)'?\s*\)\.
 
 # Strict BIP2537I "Executing statement" variant (keeps noise down in mixed logs)
-BIP2537I:\s*Node\s+'.+?':\s*Executing\s+statement\s+'.*?'\s+at\s*\(
-    \s*'?([.\w]+)'?\s*,\s*'?([0-9]+(?:\.[0-9]+)?)'?\s*\)\.
+# BIP2537I:\s*Node\s+'.+?':\s*Executing\s+statement\s+'.*?'\s+at\s*\(
+
+# SqlAssignment::execute.*?'Executing statement at \(&1,\s*&2\)'\s*,\s*'(?P<func>[.\w]+)'\s*,\s*'(?P<line>[0-9]+(?:\.[0-9]+)?)'
+
+# \s*'?([.\w]+)'?\s*,\s*'?([0-9]+(?:\.[0-9]+)?)'?\s*\)\.

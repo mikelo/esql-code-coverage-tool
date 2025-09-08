@@ -25,6 +25,10 @@ This is a Python port of the IAM2 SupportPac evaluator script (v1.0.6). It analy
 - Enable service trace from the toolkit:
   
 ![alt text](image.png)
+- alternatively you could also enable it from the Intergration Server Unit Test configuration dialog:
+![alt text](<Screenshot From 2025-09-05 13-06-58.png>)
+- subsequently create a Test Case which runs the particular ESQL that you want to test
+![alt text](<Screenshot From 2025-09-05 14-46-03.png>)
 ---
 
 ## Files
